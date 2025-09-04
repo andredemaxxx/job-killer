@@ -211,14 +211,22 @@ if (!defined('ABSPATH')) {
 .feed-parameters {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 8px;
+    align-items: center;
+    max-width: 300px;
 }
 
 .parameter-item {
-    background: #f0f0f1;
-    padding: 4px 8px;
-    border-radius: 3px;
+    background: #f6f7f7;
+    color: #2c3338;
+    padding: 6px 10px;
+    border-radius: 4px;
     font-size: 12px;
+    font-weight: 500;
+    margin: 0;
+    border: 1px solid #dcdcde;
+    line-height: 1.3;
+    white-space: nowrap;
 }
 
 .feed-status {
@@ -504,6 +512,11 @@ jQuery(document).ready(function($) {
                             samplesHtml += '</li>';
                         });
                         samplesHtml += '</ul>';
+                        
+                        if (response.data.api_url) {
+                            samplesHtml += '<p><strong>URL da API:</strong> <code style="word-break: break-all; font-size: 11px;">' + response.data.api_url + '</code></p>';
+                        }
+                        
                         $('#test-results-content').append(samplesHtml);
                     }
                 } else {

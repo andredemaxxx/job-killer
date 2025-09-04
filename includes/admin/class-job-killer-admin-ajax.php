@@ -576,6 +576,17 @@ class Job_Killer_Admin_Ajax {
                 wp_send_json_error(__('Configuration test failed: ', 'job-killer') . $test_result['message']);
             }
             
+            // Log successful test with API URL for debugging
+            $helper = new Job_Killer_Helper();
+            $helper->log('info', 'admin', 
+                sprintf('Auto feed test successful: %s', $feed_config['name']),
+                array(
+                    'feed_id' => $feed_config['id'], 
+                    'provider' => $feed_config['provider_id'],
+                    'api_url' => $test_result['api_url'] ?? 'N/A'
+                )
+            );
+            
         } catch (Exception $e) {
             wp_send_json_error(__('Configuration test failed: ', 'job-killer') . $e->getMessage());
         }

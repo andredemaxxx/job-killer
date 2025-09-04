@@ -316,6 +316,10 @@ jQuery(document).ready(function($) {
                     html += '<p>' + response.data.message + '</p>';
                     html += '<p><strong>Provider:</strong> ' + response.data.provider_name + '</p>';
                     
+                    if (response.data.api_url) {
+                        html += '<p><strong>API URL:</strong> <code>' + response.data.api_url + '</code></p>';
+                    }
+                    
                     if (response.data.sample_jobs && response.data.sample_jobs.length > 0) {
                         html += '<h4>Sample Jobs:</h4><ul>';
                         response.data.sample_jobs.forEach(function(job) {

@@ -105,11 +105,8 @@ class Job_Killer_WhatJobs_Provider {
             throw new Exception(__('Publisher ID is required for WhatJobs API', 'job-killer'));
         }
         
-        $params = array(
-            'publisher' => $publisher_id,
-            'snippet' => 'full', // Always include full snippet
-            'age_days' => 0 // Only today's jobs
-        );
+        // Build base parameters with required fields
+        $params = $this->get_base_api_params($publisher_id);
         
         // Add optional parameters
         if (!empty($config['parameters']['keyword'])) {
@@ -132,15 +129,82 @@ class Job_Killer_WhatJobs_Provider {
     }
     
     /**
+     * Get base API parameters with required fields
+     */
+    private function get_base_api_params($publisher_id) {
+        return array(
+            'publisher'  => $publisher_id,
+            'user_ip'    => urlencode($this->get_user_ip()),
+            'user_agent' => urlencode($this->get_user_agent()),
+            'snippet'    => 'full',
+            'age_days'   => 0 // Only today's jobs
+        );
+    }
+    
+    /**
+     * Get user IP address with fallback
+     */
+    private function get_user_ip() {
+        // Try to get real IP from various headers (for proxy/CDN scenarios)
+        $ip_headers = array(
+            'HTTP_CF_CONNECTING_IP',     // Cloudflare
+            'HTTP_X_REAL_IP',            // Nginx proxy
+            'HTTP_X_FORWARDED_FOR',      // Standard proxy header
+            'HTTP_X_FORWARDED',          // Proxy header
+            'HTTP_X_CLUSTER_CLIENT_IP',  // Cluster
+            'HTTP_FORWARDED_FOR',        // Proxy header
+            'HTTP_FORWARDED',            // Proxy header
+            'REMOTE_ADDR'                // Standard server variable
+        );
+        
+        foreach ($ip_headers as $header) {
+            if (!empty($_SERVER[$header])) {
+                $ip = $_SERVER[$header];
+                
+                // Handle comma-separated IPs (X-Forwarded-For can contain multiple IPs)
+                if (strpos($ip, ',') !== false) {
+                    $ip = trim(explode(',', $ip)[0]);
+                }
+                
+                // Validate IP address
+                if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                    return $ip;
+                }
+            }
+        }
+        
+        // Fallback for cron jobs or when no valid IP is found
+        return '127.0.0.1';
+    }
+    
+    /**
+     * Get user agent with fallback
+     */
+    private function get_user_agent() {
+        // Use server user agent if available
+        if (!empty($_SERVER['HTTP_USER_AGENT'])) {
+            return $_SERVER['HTTP_USER_AGENT'];
+        }
+        
+        // Fallback for cron jobs or missing user agent
+        return 'JobKillerBot/1.0 (WordPress/' . get_bloginfo('version') . '; ' . get_bloginfo('url') . ')';
+    }
+    
+    /**
      * Test API connection
      */
     public function test_connection($config) {
         try {
             $url = $this->build_api_url($config);
             
+            $this->helper->log('info', 'whatjobs', 
+                'Testing WhatJobs API connection',
+                array('url' => $url, 'config' => $config)
+            );
+            
             $response = wp_remote_get($url, array(
                 'timeout' => 30,
-                'user-agent' => 'Job Killer WordPress Plugin/' . JOB_KILLER_VERSION
+                'user-agent' => $this->get_user_agent()
             ));
             
             if (is_wp_error($response)) {
@@ -165,7 +229,8 @@ class Job_Killer_WhatJobs_Provider {
                 'success' => true,
                 'message' => sprintf(__('Connection successful! Found %d jobs.', 'job-killer'), count($jobs)),
                 'jobs_found' => count($jobs),
-                'sample_jobs' => array_slice($jobs, 0, 3)
+                'sample_jobs' => array_slice($jobs, 0, 3),
+                'api_url' => $url // Include URL for debugging
             );
             
         } catch (Exception $e) {
@@ -187,7 +252,7 @@ class Job_Killer_WhatJobs_Provider {
             
             $response = wp_remote_get($url, array(
                 'timeout' => 60,
-                'user-agent' => 'Job Killer WordPress Plugin/' . JOB_KILLER_VERSION
+                'user-agent' => $this->get_user_agent()
             ));
             
             if (is_wp_error($response)) {
